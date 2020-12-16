@@ -1,13 +1,25 @@
+from numpy.lib.function_base import select
 from numpy.lib.shape_base import tile
 import pandas as pd
 import  numpy as np
 from pyecharts.charts import  Kline,Bar,Grid
 from pyecharts import options as opts
 from pyecharts.options.series_options import LabelOpts
+from dataqoute import DataQoute
+
+
+
 
 
 '''
 缠中说禅分析
+'''
+
+
+        
+
+'''
+笔 分型
 '''
 class ChanAnalyze:
 
@@ -16,11 +28,13 @@ class ChanAnalyze:
         self.klines_merge=[] #合并后的K线
         self.fxs=[] #分型
         self.fbs=[] #笔列表
+        self.status="未确定"
         self.merge()
         self.check_merge()
         self.klinefx()
         self.klinefb()
-        self.draw()
+        self.update_status()
+        #self.draw()
     
     '''
     数据绘制分段
@@ -50,7 +64,7 @@ class ChanAnalyze:
     '''
     绘制
     '''
-    def draw(self):
+    def draw(self,freq=""):
         kdata=[]
         ktime=[]
         kvol=[]
@@ -83,7 +97,8 @@ class ChanAnalyze:
                )
         
         bar = (Bar().add_xaxis(ktime).add_yaxis("",kvol))
-        kline.render("text.html")
+        path =self.klines_merge[0]['code']+"-"+freq+".html";
+        kline.render(path)
 
   
         
@@ -112,6 +127,23 @@ class ChanAnalyze:
             if b_start and current_kline['date'] < end:
                 return True
         return False
+    
+    '''
+    更新状态为上涨、分型、下跌
+    '''
+    def update_status(self):
+        if len(self.fbs) > 0:
+            if self.fbs[-1]['fx']['k3']['date'] == self.klines_merge[-1]['date']:
+                if self.fbs[-1]['fx']['mark'] =='h' :
+                    self.status="顶分型"
+                else:
+                    self.status="底分型"
+            else:
+                if self.fbs[-1]['fx']['mark'] =='h' :
+                    self.status="下降笔"
+                else:
+                    self.status="上升笔"
+                           
     '''
     笔划分
     {'fx': {'mark': 'h', 'low': 16.54, 'high': 18.1,
@@ -151,20 +183,20 @@ class ChanAnalyze:
                                 current_bi = {}
                                 current_bi['fx']= current_fx
                                 current_bi['mark']=current_fx['mark']
-                                current_bi['price']=current_fx['k2']['low'] if current_fx['mark']== 'l' else current_fx['k2']['high']
+                                current_bi['price']=current_fx['k2']['high'] 
                                 self.fbs.append(current_bi)
                             else:
                                 current_bi = {}
                                 current_bi['fx']= current_fx
                                 current_bi['mark']=current_fx['mark']
-                                current_bi['price']=current_fx['k2']['low'] if current_fx['mark']== 'l' else current_fx['k2']['high']
+                                current_bi['price']=current_fx['k2']['high'] 
                                 self.fbs.append(current_bi)
                 if last_bi['mark'] == "h":
                     #延续
                     if current_fx['mark'] == 'h':
                         if  current_fx['k2']['high'] >last_bi['price']:
                             self.fbs[-1]['fx']=current_fx
-                            self.fbs[-1]['price']=current_fx['k2']['low']
+                            self.fbs[-1]['price']=current_fx['k2']['high']
                     if current_fx['mark']=='l':
                         #不共用K线
                         if current_fx["k1"]['date'] > last_bi['fx']['k3']['date']:
@@ -173,13 +205,13 @@ class ChanAnalyze:
                                 current_bi = {}
                                 current_bi['fx']= current_fx
                                 current_bi['mark']=current_fx['mark']
-                                current_bi['price']=current_fx['k2']['low'] if current_fx['mark']== 'l' else current_fx['k2']['high']
+                                current_bi['price']=current_fx['k2']['low'] 
                                 self.fbs.append(current_bi)
                             else:
                                 current_bi = {}
                                 current_bi['fx']= current_fx
                                 current_bi['mark']=current_fx['mark']
-                                current_bi['price']=current_fx['k2']['low'] if current_fx['mark']== 'l' else current_fx['k2']['high']
+                                current_bi['price']=current_fx['k2']['low'] 
                                 self.fbs.append(current_bi)                
                     
     '''
@@ -275,26 +307,74 @@ class ChanAnalyze:
                         self.klines_merge[-1]['low']=minlow
                 else:
                      self.klines_merge.append(curent_kline)                       
-            
+    
+    
+    '''
+    底分型买点
+    '''
+    def lfxbuy(self):
+        fx_count=len(self.fxs)
+        if fx_count >0:
+            fx_tail = self.fxs[-1]
+            if fx_tail['mark'] == 'l' and fx_tail['k3']['date'] == self.klines_merge[-1]['date']:
+                return True,fx_tail['high'],fx_tail['low']
+        return False,0,0
+    
+    '''
+    强底分型
+    '''
+    def stronglfxbuy(self):
+        blfx,high,low = self.lfxbuy()
+        if blfx:
+            fx_tail = self.fxs[-1]
+            if fx_tail['k3']['low'] >= high:
+                return True,high,low
+        return False,0,0
+                
+    '''
+    笔三买判断
+    '''
+    def thirdbuy(self,bstrong= True):
+        if len(self.fbs) > 6:
+            bilist = self.fbs[-6:]
+            if bilist[-1]['mark'] == 'l':
+                gg_max=max([x["price"] for x in bilist[:4] if x["mark"] =='h'])
+                dd_min = min([x['price'] for x in bilist[:4] if x['mark']=='l'])
+                zs_max = min([x["price"] for x in bilist[:4] if x["mark"] =='h'])
+                zs_min= max([x['price'] for x in bilist[:4] if x['mark']=='l'])
+                if bstrong:
+                    if bilist[-1]['price'] > gg_max and zs_max >= zs_min:
+                        return True,zs_max
+                else:
+                    if bilist[-1]['price'] > zs_max and zs_max >= zs_min:
+                        return True,zs_max               
+                
+        else:
+            return False,0  
+        
+             
             
         
     
 
 if __name__ == "__main__":
-    df = pd.read_csv('day_sz.000001.csv')
+    
     '''
     数据格式
     {'date': '2020-10-16', 'code': 'sz.000001', 'open': 16.56, 'high': 17.37, 
     'low': 16.54, 'close': 17.1, 'volume': 209561419, 'amount': 3589229558.57, 'adjustflag': 2}
     '''
-    head = df.columns.values
-    data = df.values
-    klines=[]
-    #dataframe转换成字典
-    for one in data:
-        b=dict(zip(head,one))
-        klines.append(b)
-    chan = ChanAnalyze(klines)
-    print("分型个数：",len(chan.fxs))
-    print("笔数量：",len(chan.fbs))
-    print(chan.fbs[-3:])
+    
+    dataqout = DataQoute("sz000001")
+    kline_day = dataqout.GetKData("240")
+    kline_week= dataqout.GetKData("1200")
+    kline_min30=dataqout.GetKData("30")
+    chan_day = ChanAnalyze(kline_day)
+    chan_week = ChanAnalyze(kline_week)
+    chan_min30 = ChanAnalyze(kline_min30)
+    out_put= ("周状态：%s,日状态：%s,30分钟状态：%s")%(chan_week.status,chan_day.status,chan_min30.status)
+    print(out_put)
+    chan_week.draw("week")
+    chan_day.draw("day")
+    chan_min30.draw("30min")
+   

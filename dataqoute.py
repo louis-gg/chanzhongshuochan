@@ -5,6 +5,7 @@ import requests
 from requests.api import head, request
 import json
 import datetime
+import re
 
 
 '''
@@ -27,7 +28,7 @@ https://web.sqt.gtimg.cn/q=r_hk01082?r=0.07942820340450552
 '''
 
 class DataQoute:
-    def __init__(self,code):
+    def __init__(self):
         #实时价格
         '''
         http://hq.sinajs.cn/list=sh601006
@@ -46,15 +47,27 @@ class DataQoute:
         self.hk_week_api='https://web.ifzq.gtimg.cn/appstock/app/hkfqkline/get?_var=kline_weekqfq&param=%s,week,,,1000,qfq&r=0.005481024716898597'
         self.hk_month_api ='https://web.ifzq.gtimg.cn/appstock/app/hkfqkline/get?_var=kline_monthqfq&param=%s,month,,,320,qfq&r=0.6635249910650687'
         
+        self.hk_codes_api ='http://app.finance.ifeng.com/hq/list.php?type=hkstock'
+        
+        self.a_shcodes_api ='http://app.finance.ifeng.com/hq/list.php?type=stock_a&class=ha'
+        self.a_szcodes_api='http://app.finance.ifeng.com/hq/list.php?type=stock_a&class=sa'
+        self.a_gemcodes_api='http://app.finance.ifeng.com/hq/list.php?type=stock_a&class=gem'
         self.header = {
             'Accept-Encoding':
             'gzip, deflate, sdch',
             'User-Agent':
             'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.100 Safari/537.36'
         }
-        self.code = code
+        self.code =''
         self.name =""
+        self.hk_codes={}
+        self.sh_codes={}
+        self.sz_codes={}
+        self.gem_codes={}
         self.session = requests.session()
+    
+    def SetCode(self,code):
+        self.code=code
     
     def GetTimeData(self):
         request_url = self.time_data_api +self.code
@@ -164,20 +177,98 @@ class DataQoute:
             klines.append(kline)
             
         return klines
+    
+    def GetHkCodes(self):
+        r=self.session.get(self.hk_codes_api,headers=self.header)
+        #<li><a href="http://finance.ifeng.com/app/hq/hkstock/hk
+        #<li><a href="http://finance.ifeng.com/app/hq/hkstock/hk1361/index.shtml" target="_blank">361度(1361)</a></li>
+        s='<li><a href="http://finance.ifeng.com/app/hq/hkstock/hk([0-9]*)/index.shtml" target="_blank">(.*)\([0-9]*\)</a></li>'
+        html = r.text
+        pat = re.compile(s)
+        codes= pat.findall(html)
+        for code in codes:
+            hk_code={}
+            hk_code['code']= 'hk'+code[0]
+            hk_code['name']=code[1]
+            self.hk_codes['hk'+code[0]]=hk_code
+        str_codes =json.dumps(self.hk_codes,ensure_ascii=False)
+        file=open("hkcodes.txt","w")
+        file.write(str_codes)
+        file.close()
+      
         
-        
+    def GetShCodes(self):
+        r=self.session.get(self.a_shcodes_api,headers=self.header)
+        #<li><a href="http://finance.ifeng.com/app/hq/hkstock/hk
+        #<li><a href="http://finance.ifeng.com/app/hq/hkstock/hk1361/index.shtml" target="_blank">361度(1361)</a></li>
+        s='<li><a href="http://finance.ifeng.com/app/hq/stock/sh([0-9]*)/index.shtml" target="_blank">(.*)\([0-9]*\)</a></li>'
+        html = r.text
+        pat = re.compile(s)
+        codes= pat.findall(html)
+        for code in codes:
+            sh_code={}
+            sh_code['code']= 'sh'+code[0]
+            sh_code['name']=code[1]
+            self.sh_codes['sh'+code[0]]=sh_code
+        str_codes =json.dumps(self.sh_codes,ensure_ascii=False)
+        file=open("shcodes.txt","w")
+        file.write(str_codes)
+        file.close()
             
+    def GetSzCodes(self):
+        r=self.session.get(self.a_szcodes_api,headers=self.header)
+        #<li><a href="http://finance.ifeng.com/app/hq/hkstock/hk
+        #<li><a href="http://finance.ifeng.com/app/hq/hkstock/hk1361/index.shtml" target="_blank">361度(1361)</a></li>
+        s='<li><a href="http://finance.ifeng.com/app/hq/stock/sz([0-9]*)/index.shtml" target="_blank">(.*)\([0-9]*\)</a></li>'
+        html = r.text
+        pat = re.compile(s)
+        codes= pat.findall(html)
+        for code in codes:
+            sz_code={}
+            sz_code['code']= 'sz'+code[0]
+            sz_code['name']=code[1]
+            self.sz_codes['sz'+code[0]]=sz_code
+        str_codes =json.dumps(self.sz_codes,ensure_ascii=False)
+        file=open("szcodes.txt","w")
+        file.write(str_codes)
+        file.close()   
             
+    def GetGemCodes(self):
+        r=self.session.get(self.a_gemcodes_api,headers=self.header)
+        #<li><a href="http://finance.ifeng.com/app/hq/hkstock/hk
+        #<li><a href="http://finance.ifeng.com/app/hq/hkstock/hk1361/index.shtml" target="_blank">361度(1361)</a></li>
+        s='<li><a href="http://finance.ifeng.com/app/hq/stock/sz([0-9]*)/index.shtml" target="_blank">(.*)\([0-9]*\)</a></li>'
+        html = r.text
+        pat = re.compile(s)
+        codes= pat.findall(html)
+        for code in codes:
+            sz_code={}
+            sz_code['code']= 'sz'+code[0]
+            sz_code['name']=code[1]
+            self.gem_codes['sz'+code[0]]=sz_code
+        str_codes =json.dumps(self.gem_codes,ensure_ascii=False)
+        file=open("gemcodes.txt","w")
+        file.write(str_codes)
+        file.close()            
           
         
 if __name__ == "__main__":
+    
+    
     code ='hk01093'
-    data_qoute=DataQoute(code)
+    data_qoute=DataQoute()
+    data_qoute.GetHkCodes()
+    data_qoute.GetShCodes()
+    data_qoute.GetSzCodes()
+    data_qoute.GetGemCodes()
+    data_qoute.SetCode(code)
+    '''
     klines=data_qoute.GetHkKData("day")
     print(len(klines))
     print('==========================')
 
     data_qoute.GetKData("240")
+    '''
         
         
         

@@ -71,11 +71,13 @@ class DataQoute:
     
     def GetTimeData(self):
         request_url = self.time_data_api +self.code
-        r = self.session.get(request_url,headers = self.header)
-        #sh601006=大秦铁路,6.600,6.600,6.550,6.610,6.530,6.540,6.550,16365460,107231427.000,214838,6.540,859590,6.530,689800,6.520,10359
-        splits=r.text.split("=")[1].replace('"','').split(",")
-        self.name=splits[0]
-        time_data=dict(
+        time_data={}
+        try:
+            r = self.session.get(request_url,headers = self.header)
+            #sh601006=大秦铁路,6.600,6.600,6.550,6.610,6.530,6.540,6.550,16365460,107231427.000,214838,6.540,859590,6.530,689800,6.520,10359
+            splits=r.text.split("=")[1].replace('"','').split(",")
+            self.name=splits[0]
+            time_data=dict(
                 code=self.code,
                 name=splits[0],
                 open=float(splits[1]),
@@ -110,8 +112,9 @@ class DataQoute:
                 date=splits[30],
                 time=splits[31],
             )
-        print(time_data)
-        print(r.text)
+        except Exception as e:
+            print(self.code,str(Exception),e)
+        return time_data
         
     '''
     5
@@ -127,12 +130,17 @@ class DataQoute:
         if freq =='240' or freq == '1200':
             time_fomart='%Y-%m-%d'
         request_url = self.mink_data_api+param
-        r=self.session.get(request_url,headers=self.header)
-        klines =json.loads(r.text)
-        for i in range(len(klines)):
-            klines[i]["date"]=klines[i]["day"] #datetime.datetime.strptime(klines[i]["day"],time_fomart) 
-            klines[i]['code']=self.code
-            del klines[i]["day"]
+        klines=[]
+        try:
+            r=self.session.get(request_url,headers=self.header)
+            klines =json.loads(r.text)
+            for i in range(len(klines)):
+                klines[i]["date"]=klines[i]["day"] #datetime.datetime.strptime(klines[i]["day"],time_fomart) 
+                klines[i]['code']=self.code
+                del klines[i]["day"]
+        except Exception as e:
+            print(self.code,str(Exception),str(e)) 
+
         return klines
     
     '''
@@ -155,26 +163,30 @@ class DataQoute:
         else:
             print("error,freq is error")
             return []
-        r=self.session.get(request_url,headers = self.header)
-        data_text = r.text.split("=")[1]
-        data=json.loads(data_text)
-        kdatas = data['data'][self.code][data_key]
-        '''
-        ['2020-12-16', '7.700', '7.770', '7.830', '7.580', '142194865.00', {}, '0', '110189.61']
-        '''
         klines =[]
-        for  i in range (len(kdatas)):
-            current_kdata= kdatas[i]
-            kline={}
-            kline['date']= current_kdata[0]
-            kline['code']=self.code
-            kline['open']=float(current_kdata[1])
-            kline['close']=float(current_kdata[2])
-            kline['high']=float(current_kdata[3])
-            kline['low']=float(current_kdata[4])
-            kline['amount']=float(current_kdata[5])
-            kline['volume']=float(current_kdata[8])
-            klines.append(kline)
+        try:
+            r=self.session.get(request_url,headers = self.header)
+            r.encoding="utf-8"
+            data_text = r.text.split("=")[1]
+            data=json.loads(data_text)
+            kdatas = data['data'][self.code][data_key] if data['data'][self.code].__contains__(data_key) else data['data'][self.code][freq]
+            '''
+            ['2020-12-16', '7.700', '7.770', '7.830', '7.580', '142194865.00', {}, '0', '110189.61']
+            '''
+            for  i in range (len(kdatas)):
+                current_kdata= kdatas[i]
+                kline={}
+                kline['date']= current_kdata[0]
+                kline['code']=self.code
+                kline['open']=float(current_kdata[1])
+                kline['close']=float(current_kdata[2])
+                kline['high']=float(current_kdata[3])
+                kline['low']=float(current_kdata[4])
+                kline['amount']=float(current_kdata[5])
+                kline['volume']=float(current_kdata[8])
+                klines.append(kline)
+        except Exception as e:
+            print (self.code,str(Exception),str(e))
             
         return klines
     
@@ -257,12 +269,15 @@ if __name__ == "__main__":
     
     code ='hk01093'
     data_qoute=DataQoute()
+    data_qoute.SetCode('hk00272')
+    data_qoute.GetHkKData("day")
+    '''
     data_qoute.GetHkCodes()
     data_qoute.GetShCodes()
     data_qoute.GetSzCodes()
     data_qoute.GetGemCodes()
     data_qoute.SetCode(code)
-    '''
+   
     klines=data_qoute.GetHkKData("day")
     print(len(klines))
     print('==========================')

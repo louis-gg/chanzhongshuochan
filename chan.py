@@ -6,6 +6,7 @@ from pyecharts.charts import  Kline,Bar,Grid
 from pyecharts import options as opts
 from pyecharts.options.series_options import LabelOpts
 from dataqoute import DataQoute
+import json
 
 
 
@@ -343,14 +344,13 @@ class ChanAnalyze:
                 zs_max = min([x["price"] for x in bilist[:4] if x["mark"] =='h'])
                 zs_min= max([x['price'] for x in bilist[:4] if x['mark']=='l'])
                 if bstrong:
-                    if bilist[-1]['price'] > gg_max and zs_max >= zs_min:
+                    if bilist[-1]['price'] > gg_max and zs_max >= zs_min and self.klines_merge[-1]["low"] > bilist[-1]['price'] and bilist[0]['price'] < zs_min :
                         return True,zs_max
+                    
                 else:
-                    if bilist[-1]['price'] > zs_max and zs_max >= zs_min:
+                    if bilist[-1]['price'] > zs_max and zs_max >= zs_min and self.klines_merge[-1]["low"] > bilist[-1]['price']  and bilist[0]['price'] < zs_min:
                         return True,zs_max               
-                
-        else:
-            return False,0  
+        return False,0  
         
              
             
@@ -359,22 +359,25 @@ class ChanAnalyze:
 
 if __name__ == "__main__":
     
+    
+    
+
     '''
     数据格式
     {'date': '2020-10-16', 'code': 'sz.000001', 'open': 16.56, 'high': 17.37, 
     'low': 16.54, 'close': 17.1, 'volume': 209561419, 'amount': 3589229558.57, 'adjustflag': 2}
+  
     '''
-    
-    dataqout = DataQoute("sz000001")
-    kline_day = dataqout.GetKData("240")
-    kline_week= dataqout.GetKData("1200")
-    kline_min30=dataqout.GetKData("30")
-    chan_day = ChanAnalyze(kline_day)
-    chan_week = ChanAnalyze(kline_week)
-    chan_min30 = ChanAnalyze(kline_min30)
-    out_put= ("周状态：%s,日状态：%s,30分钟状态：%s")%(chan_week.status,chan_day.status,chan_min30.status)
-    print(out_put)
-    chan_week.draw("week")
-    chan_day.draw("day")
-    chan_min30.draw("30min")
+    dataqout = DataQoute()
+    dataqout.GetHkCodes()
+    hk_codes = dataqout.hk_codes
+    for code in hk_codes.keys():
+        dataqout.SetCode(code)
+        kline_day=dataqout.GetHkKData("day")
+        if len(kline_day) > 0 :
+            chan_day=ChanAnalyze(kline_day)
+            bthird_buy,price=chan_day.thirdbuy(bstrong=False)
+            if bthird_buy:
+                chan_day.draw(code+"_"+hk_codes[code]['name'])
+
    
